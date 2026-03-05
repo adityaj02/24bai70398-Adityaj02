@@ -1,0 +1,75 @@
+# load-test/scenario.yml
+# Artillery load test for the Concurrent Ticket Booking System
+# Run: npm run load-test
+# Docs: https://www.artillery.io/docs/
+
+config:
+  target: "http://localhost:3000"
+  phases:
+    # Warm-up phase
+    - duration: 10
+      arrivalRate: 5
+      name: "Warm-up"
+    # Ramp-up phase — simulate growing demand
+    - duration: 20
+      arrivalRate: 5
+      rampTo: 50
+      name: "Ramp-up"
+    # Peak load — simulates ticket rush
+    - duration: 30
+      arrivalRate: 50
+      name: "Peak Load"
+    # Cool-down
+    - duration: 10
+      arrivalRate: 10
+      name: "Cool-down"
+
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+  # Capture metrics thresholds
+  ensure:
+    p95: 500     # 95th percentile response < 500ms
+    p99: 1000    # 99th percentile response < 1s
+    maxErrorRate: 5  # < 5% error rate
+
+scenarios:
+  # Scenario 1: Book a random seat (80% of traffic)
+  - name: "Book Random Seat"
+    weight: 80
+    flow:
+      - get:
+          url: "/api/events/EVT001/seats"
+          capture:
+            - json: "$[?(@.status=='available')][0].seatId"
+              as: "availableSeatId"
+      - think: 0.5
+      - post:
+          url: "/api/events/EVT001/book"
+          json:
+            seatId: "{{ availableSeatId }}"
+            userId: "user-{{ $randomString() }}"
+          expect:
+            - statusCode:
+                - 201
+                - 409  # seat taken — expected under load
+                - 423  # locked — expected under load
+
+  # Scenario 2: Check event status (15% of traffic)
+  - name: "Check Event"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/events/EVT001"
+          expect:
+            - statusCode: 200
+
+  # Scenario 3: Health check (5% of traffic)
+  - name: "Health Check"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
