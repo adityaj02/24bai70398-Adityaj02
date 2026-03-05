@@ -4,7 +4,7 @@
   "description": "Concurrent Ticket Booking System with Redis Seat Locking",
   "main": "src/app.js",
   "scripts": {
-    "start": "node src/app.js",
+    "start": "node src/utils/seeder.js && node src/app.js",
     "dev": "nodemon src/app.js",
     "test": "jest --runInBand --forceExit",
     "load-test": "artillery run load-test/scenario.yml",
